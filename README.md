@@ -151,11 +151,17 @@ To run it, continue with the next section:
 
 ### Setup and Usage
 
-We try to keep our python dependencies as light as possible. This should allow for easier experimentation. To run the main priv-escalation program (which is called `wintermute`) together with an OpenAI-based model you need:
+We try to keep our python dependencies as light as possible. This should allow for easier experimentation. To run the main priv-escalation program (which is called `wintermute`) you need:
 
-1. an OpenAI API account, you can find the needed keys [in your account page](https://platform.openai.com/account/api-keys)
+**LLM Provider Options:**
+1. **OpenAI**: an OpenAI API account, you can find the needed keys [in your account page](https://platform.openai.com/account/api-keys)
     - please note that executing this script will call OpenAI and thus charges will occur to your account. Please keep track of those.
-2. a potential target that is accessible over SSH. You can either use a deliberately vulnerable machine such as [Lin.Security.1](https://www.vulnhub.com/entry/) or a security benchmark such as our [linux priv-esc benchmark](https://github.com/ipa-lab/benchmark-privesc-linux).
+2. **Google Gemini**: a Google AI API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+    - Gemini models often provide competitive pricing and performance alternatives to OpenAI
+    - See [Gemini Setup Guide](docs/gemini_setup.md) for detailed configuration instructions
+
+**Target System:**
+- a potential target that is accessible over SSH. You can either use a deliberately vulnerable machine such as [Lin.Security.1](https://www.vulnhub.com/entry/) or a security benchmark such as our [linux priv-esc benchmark](https://github.com/ipa-lab/benchmark-privesc-linux).
 
 To get everything up and running, clone the repo, download requirements, setup API keys and credentials, and start `wintermute.py`:
 
@@ -320,7 +326,7 @@ This project is an experimental application and is provided "as-is" without any 
 
 The developers and contributors of this project do not accept any responsibility or liability for any losses, damages, or other consequences that may occur as a result of using this software. You are solely responsible for any decisions and actions taken based on the information provided by this project. 
 
-**Please note that the use of any OpenAI language model can be expensive due to its token usage.** By utilizing this project, you acknowledge that you are responsible for monitoring and managing your own token usage and the associated costs. It is highly recommended to check your OpenAI API usage regularly and set up any necessary limits or alerts to prevent unexpected charges.
+**Please note that the use of any LLM service (OpenAI, Google Gemini, etc.) can be expensive due to token usage.** By utilizing this project, you acknowledge that you are responsible for monitoring and managing your own token usage and the associated costs. It is highly recommended to check your API usage regularly and set up any necessary limits or alerts to prevent unexpected charges.
 
 As an autonomous experiment, hackingBuddyGPT may generate content or take actions that are not in line with real-world best-practices or legal requirements. It is your responsibility to ensure that any actions or decisions made based on the output of this software comply with all applicable laws, regulations, and ethical standards. The developers and contributors of this project shall not be held responsible for any consequences arising from the use of this software.
 

@@ -4,37 +4,151 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link rel="stylesheet" href="/static/style.css" />
+        <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+        <script src="https://d3js.org/d3.v7.min.js"></script>
         <title>hackingBuddyGPT</title>
     </head>
     <body>
-        <div class="container">
-            <nav class="sidebar" id="sidebar">
-                <div id="sidebar-header-container">
-                    <header id="sidebar-header">
-                        <button class="menu-toggle">☰</button>
-                        <h2>Runs</h2>
-                    </header>
-                    <div id="follow-new-runs-container" class="small">
-                        <input type="checkbox" id="follow_new_runs" />
-                        <label for="follow_new_runs">Follow new runs</label>
+        <div class="app-container">
+            <!-- Navigation Drawer -->
+            <nav class="navigation-drawer" id="sidebar">
+                <div class="nav-header">
+                    <div class="nav-header-content">
+                        <button class="nav-toggle" aria-label="Toggle navigation">
+                            <span class="material-icons">menu</span>
+                        </button>
+                        <div class="nav-title">
+                            <h1>hackingBuddyGPT</h1>
+                            <span class="subtitle">AI Security Testing</span>
+                        </div>
+                    </div>
+                    <div class="follow-runs-container">
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="follow_new_runs" class="md-checkbox" />
+                            <label for="follow_new_runs" class="checkbox-label">
+                                <span class="material-icons checkbox-icon">check</span>
+                                Follow new runs
+                            </label>
+                        </div>
                     </div>
                 </div>
-                <ul id="run-list"></ul>
+                
+                <div class="nav-content">
+                    <div class="section-header">
+                        <span class="material-icons">history</span>
+                        <h2>Recent Runs</h2>
+                    </div>
+                    <div class="run-list-container">
+                        <ul id="run-list" class="run-list"></ul>
+                    </div>
+                    
+                    <!-- Test Controls -->
+                    <div class="test-controls" style="padding: 16px; border-top: 1px solid var(--md-sys-color-outline-variant); margin-top: 16px;">
+                        <div class="section-header">
+                            <span class="material-icons">bug_report</span>
+                            <h3>Debug Controls</h3>
+                        </div>
+                        <button class="debug-button" id="test-graph" style="
+                            width: 100%; 
+                            padding: 12px; 
+                            margin: 8px 0; 
+                            background: var(--md-sys-color-secondary-container); 
+                            color: var(--md-sys-color-on-secondary-container); 
+                            border: none; 
+                            border-radius: 12px; 
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            gap: 8px;
+                            justify-content: center;">
+                            <span class="material-icons">account_tree</span>
+                            Load Test Data
+                        </button>
+                        <button class="debug-button" id="clear-graph" style="
+                            width: 100%; 
+                            padding: 12px; 
+                            margin: 8px 0; 
+                            background: var(--md-sys-color-error-container); 
+                            color: var(--md-sys-color-on-error-container); 
+                            border: none; 
+                            border-radius: 12px; 
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            gap: 8px;
+                            justify-content: center;">
+                            <span class="material-icons">clear_all</span>
+                            Clear Graph
+                        </button>
+                    </div>
+                </div>
             </nav>
 
-            <div id="main-body">
-                <header id="run-header">
-                    <button class="menu-toggle">☰</button>
-                    <h2 class="run-id" id="main-run-title"></h2>
+            <!-- Main Content -->
+            <div class="main-content" id="main-body">
+                <!-- Top App Bar -->
+                <header class="top-app-bar" id="run-header">
+                    <div class="app-bar-content">
+                        <button class="nav-toggle" aria-label="Toggle navigation">
+                            <span class="material-icons">menu</span>
+                        </button>
+                        <div class="app-bar-title">
+                            <h1 id="main-run-title" class="run-title">Select a Run</h1>
+                        </div>
+                        <div class="app-bar-actions">
+                            <button class="icon-button tooltip" id="view-toggle" aria-label="Toggle Graph View" data-tooltip="Switch to Graph View">
+                                <span class="material-icons">account_tree</span>
+                            </button>
+                            <button class="icon-button tooltip" aria-label="Refresh" data-tooltip="Refresh">
+                                <span class="material-icons">refresh</span>
+                            </button>
+                            <button class="icon-button tooltip" aria-label="Settings" data-tooltip="Settings">
+                                <span class="material-icons">settings</span>
+                            </button>
+                        </div>
+                    </div>
                 </header>
-                <div id="black-block"></div>
-                <details id="run-config-details">
-                    <summary>
-                        <h3>Configuration</h3>
-                    </summary>
-                    <pre id="run-config"></pre>
-                </details>
-                <main id="messages"></main>
+
+                <!-- Content Area -->
+                <div class="content-area">
+                    <div id="black-block" class="spacer-block"></div>
+                    
+                    <!-- Configuration Card -->
+                    <div class="card config-card" id="run-config-details">
+                        <div class="card-header">
+                            <div class="card-title">
+                                <span class="material-icons">settings</span>
+                                <h3>Configuration</h3>
+                            </div>
+                            <span class="material-icons expand-icon">expand_more</span>
+                        </div>
+                        <div class="card-content">
+                            <pre id="run-config" class="config-content">No configuration data available</pre>
+                        </div>
+                    </div>
+
+                    <!-- Messages Container -->
+                    <div class="messages-container" id="list-view">
+                        <main id="messages" class="messages-grid"></main>
+                    </div>
+
+                    <!-- Graph Container -->
+                    <div class="graph-container" id="graph-view" style="display: none;">
+                        <div id="graph-svg"></div>
+                        <div id="node-details" class="node-details-panel">
+                            <div class="panel-header">
+                                <h3>Node Details</h3>
+                                <button class="icon-button" id="close-details">
+                                    <span class="material-icons">close</span>
+                                </button>
+                            </div>
+                            <div class="panel-content" id="details-content">
+                                <p>Select a node to view details</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </body>
@@ -93,4 +207,29 @@
         </details>
     </template>
     <script src="/static/client.js"></script>
+    <script src="/static/graph-view.js"></script>
+    <script src="/static/md3-enhancements.js"></script>
+    <script>
+        // Debug script to test UI functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, checking UI elements...');
+            
+            // Check if view toggle button exists
+            const viewToggle = document.getElementById('view-toggle');
+            console.log('View toggle button:', viewToggle);
+            
+            // Check if graph view exists
+            const graphView = document.getElementById('graph-view');
+            console.log('Graph view container:', graphView);
+            
+            // Check if graph view object is initialized
+            setTimeout(() => {
+                console.log('Graph view object:', window.graphView);
+                if (window.graphView) {
+                    console.log('Graph view nodes:', window.graphView.nodes.length);
+                    console.log('Graph view links:', window.graphView.links.length);
+                }
+            }, 1000);
+        });
+    </script>
 </html>

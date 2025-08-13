@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>hackingBuddyGPT - Test UI</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Navigation Drawer -->
+        <nav class="navigation-drawer" id="sidebar">
+            <div class="nav-header">
+                <div class="nav-header-content">
+                    <button class="nav-toggle" aria-label="Toggle navigation">
+                        <span class="material-icons">menu</span>
+                    </button>
+                    <div class="nav-title">
+                        <h1>hackingBuddyGPT</h1>
+                        <span class="subtitle">AI Security Testing</span>
+                    </div>
+                </div>
+                <div class="follow-runs-container">
+                    <div class="checkbox-container">
+                        <input type="checkbox" id="follow_new_runs" class="md-checkbox" />
+                        <label for="follow_new_runs" class="checkbox-label">
+                            Follow new runs
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="nav-content">
+                <div class="section-header">
+                    <span class="material-icons">history</span>
+                    <h2>Recent Runs</h2>
+                </div>
+                <div class="run-list-container">
+                    <ul id="run-list" class="run-list">
+                        <li class="run-list-entry active">
+                            <a href="#1">
+                                <div class="run-list-info">
+                                    <h3>Run 1</h3>
+                                    <span class="run-model">GPT-4</span>
+                                    <span class="run-tags">web-testing</span>
+                                    <span class="run-state">completed</span>
+                                </div>
+                                <div class="run-list-timing">
+                                    <span class="run-started-at">14:30:25</span>
+                                    <span class="run-stopped-at">14:35:42</span>
+                                </div>
+                            </a>
+                        </li>
+                        <li class="run-list-entry">
+                            <a href="#2">
+                                <div class="run-list-info">
+                                    <h3>Run 2</h3>
+                                    <span class="run-model">GPT-3.5</span>
+                                    <span class="run-tags">priv-esc</span>
+                                    <span class="run-state">running</span>
+                                </div>
+                                <div class="run-list-timing">
+                                    <span class="run-started-at">15:10:15</span>
+                                    <span class="run-stopped-at">-</span>
+                                </div>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="main-content" id="main-body">
+            <!-- Top App Bar -->
+            <header class="top-app-bar" id="run-header">
+                <div class="app-bar-content">
+                    <button class="nav-toggle" aria-label="Toggle navigation">
+                        <span class="material-icons">menu</span>
+                    </button>
+                    <div class="app-bar-title">
+                        <h1 id="main-run-title" class="run-title">Run 1 - Web Testing</h1>
+                    </div>
+                    <div class="app-bar-actions">
+                        <button class="icon-button tooltip" id="view-toggle" aria-label="Toggle Graph View" data-tooltip="Switch to Graph View">
+                            <span class="material-icons">account_tree</span>
+                        </button>
+                        <button class="icon-button tooltip" aria-label="Refresh" data-tooltip="Refresh">
+                            <span class="material-icons">refresh</span>
+                        </button>
+                        <button class="icon-button tooltip" aria-label="Settings" data-tooltip="Settings">
+                            <span class="material-icons">settings</span>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div class="content-area">
+                <div id="black-block" class="spacer-block"></div>
+                
+                <!-- Configuration Card -->
+                <div class="card config-card expanded" id="run-config-details">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <span class="material-icons">settings</span>
+                            <h3>Configuration</h3>
+                        </div>
+                        <span class="material-icons expand-icon">expand_more</span>
+                    </div>
+                    <div class="card-content">
+                        <pre id="run-config" class="config-content">{
+  "model": "gpt-4",
+  "target": "http://testsite.com",
+  "use_case": "web_testing",
+  "max_iterations": 10
+}</pre>
+                    </div>
+                </div>
+
+                <!-- Messages Container -->
+                <div class="messages-container" id="list-view">
+                    <main id="messages" class="messages-grid">
+                        <!-- Sample messages -->
+                        <div class="message">
+                            <div class="message-header">
+                                <div>
+                                    <h3 class="role">system</h3>
+                                    <span class="tokens-query">150 qry tokens</span>
+                                </div>
+                                <div>
+                                    <span class="duration">0.250 s</span>
+                                    <span class="tokens-response">0 rsp tokens</span>
+                                </div>
+                            </div>
+                            <pre class="message-text">You are a security testing assistant. Your goal is to identify vulnerabilities in web applications.</pre>
+                        </div>
+
+                        <div class="message">
+                            <div class="message-header">
+                                <div>
+                                    <h3 class="role">user</h3>
+                                    <span class="tokens-query">50 qry tokens</span>
+                                </div>
+                                <div>
+                                    <span class="duration">0.100 s</span>
+                                    <span class="tokens-response">0 rsp tokens</span>
+                                </div>
+                            </div>
+                            <pre class="message-text">Test the target website for common vulnerabilities.</pre>
+                        </div>
+
+                        <div class="message">
+                            <div class="message-header">
+                                <div>
+                                    <h3 class="role">assistant</h3>
+                                    <span class="tokens-query">0 qry tokens</span>
+                                </div>
+                                <div>
+                                    <span class="duration">2.450 s</span>
+                                    <span class="tokens-response">320 rsp tokens</span>
+                                </div>
+                            </div>
+                            <pre class="message-text">I'll help you test the website for vulnerabilities. Let me start by performing an initial reconnaissance scan.</pre>
+                            <div class="tool-calls">
+                                <div class="tool-call">
+                                    <div class="tool-call-header">
+                                        <h3 class="tool-call-function">http_request</h3>
+                                        <span class="tool-call-state">completed</span>
+                                        <span class="tool-call-duration">1.200 s</span>
+                                    </div>
+                                    <pre class="tool-call-parameters">{"url": "http://testsite.com", "method": "GET"}</pre>
+                                    <pre class="tool-call-results">HTTP/1.1 200 OK
+Content-Type: text/html
+Server: Apache/2.4.41
+
+<!DOCTYPE html>
+<html>
+<head><title>Test Site</title></head>
+<body><h1>Welcome</h1></body>
+</html></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </main>
+                </div>
+
+                <!-- Graph Container -->
+                <div class="graph-container" id="graph-view" style="display: none;">
+                    <div id="graph-svg"></div>
+                    <div id="node-details" class="node-details-panel">
+                        <div class="panel-header">
+                            <h3>Node Details</h3>
+                            <button class="icon-button" id="close-details">
+                                <span class="material-icons">close</span>
+                            </button>
+                        </div>
+                        <div class="panel-content" id="details-content">
+                            <p>Select a node to view details</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Test graph view functionality
+        document.addEventListener("DOMContentLoaded", () => {
+            // Initialize basic navigation
+            const sidebar = document.getElementById("sidebar");
+            const navToggles = document.querySelectorAll(".nav-toggle");
+            
+            navToggles.forEach((toggle) => {
+                toggle.addEventListener("click", () => {
+                    sidebar.classList.toggle("active");
+                });
+            });
+
+            // Test data for graph view
+            const testMessages = [
+                {
+                    id: 1,
+                    role: "system",
+                    content: "You are a security testing assistant. Your goal is to identify vulnerabilities in web applications.",
+                    duration: 0.25,
+                    tokens_query: 150,
+                    tokens_response: 0
+                },
+                {
+                    id: 2,
+                    role: "user", 
+                    content: "Test the target website for common vulnerabilities.",
+                    duration: 0.1,
+                    tokens_query: 50,
+                    tokens_response: 0
+                },
+                {
+                    id: 3,
+                    role: "assistant",
+                    content: "I'll help you test the website for vulnerabilities. Let me start by performing an initial reconnaissance scan.",
+                    duration: 2.45,
+                    tokens_query: 0,
+                    tokens_response: 320
+                }
+            ];
+
+            const testToolCall = {
+                id: 1,
+                message_id: 3,
+                function_name: "http_request",
+                state: "completed",
+                duration: 1.2,
+                arguments: '{"url": "http://testsite.com", "method": "GET"}',
+                result_text: `HTTP/1.1 200 OK
+Content-Type: text/html
+Server: Apache/2.4.41
+
+<!DOCTYPE html>
+<html>
+<head><title>Test Site</title></head>
+<body><h1>Welcome</h1></body>
+</html>`
+            };
+
+            // Wait for graph view to initialize
+            setTimeout(() => {
+                if (window.graphView) {
+                    // Add test data to graph
+                    testMessages.forEach(msg => {
+                        window.graphView.addMessage(msg);
+                    });
+                    window.graphView.addToolCall(testToolCall);
+                }
+            }, 500);
+        });
+    </script>
+    <script src="/static/graph-view.js"></script>
+    <script src="/static/md3-enhancements.js"></script>
+</body>
+</html>

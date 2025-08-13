@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import MarkdownTextSplitter
+from hackingBuddyGPT.utils.embeddings import GeminiEmbeddings
 
 
 def initiate_rag():
@@ -14,7 +15,23 @@ def initiate_rag():
     rag_storage_path = os.path.abspath(os.path.join("..", "usecases", "rag", "rag_storage"))
     persistent_directory = os.path.join(rag_storage_path, "vector_storage", os.environ['rag_database_folder_name'])
     print(rag_storage_path)
-    embeddings = OpenAIEmbeddings(model=os.environ['rag_embedding'], api_key=os.environ['openai_api_key'])
+    
+    # Choose embedding provider based on configuration
+    embedding_provider = os.environ.get('rag_embedding_provider', 'openai').lower()
+    
+    if embedding_provider == 'gemini':
+        embeddings = GeminiEmbeddings(
+            model=os.environ['rag_embedding'],
+            api_key=os.environ['gemini_api_key']
+        )
+        print(f"Using Gemini embeddings with model: {os.environ['rag_embedding']}")
+    else:
+        # Default to OpenAI
+        embeddings = OpenAIEmbeddings(
+            model=os.environ['rag_embedding'],
+            api_key=os.environ['openai_api_key']
+        )
+        print(f"Using OpenAI embeddings with model: {os.environ['rag_embedding']}")
 
     markdown_splitter = MarkdownTextSplitter(chunk_size=1000, chunk_overlap=0)
 

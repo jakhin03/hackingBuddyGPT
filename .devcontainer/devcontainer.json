@@ -1,3 +1,37 @@
 {
-	"onCreateCommand": "./scripts/codespaces_create_and_start_containers.sh"
+	"name": "HackingBuddyGPT Development",
+	"dockerFile": "../scripts/codespaces_create_and_start_containers.Dockerfile",
+	"context": "..",
+	"features": {
+		"ghcr.io/devcontainers/features/python:1": {
+			"version": "3.11"
+		},
+		"ghcr.io/devcontainers/features/git:1": {},
+		"ghcr.io/devcontainers/features/github-cli:1": {}
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-python.python",
+				"ms-python.flake8",
+				"ms-python.black-formatter",
+				"ms-python.isort",
+				"ms-toolsai.jupyter"
+			],
+			"settings": {
+				"python.defaultInterpreterPath": "/usr/bin/python3",
+				"python.linting.enabled": true,
+				"python.linting.flake8Enabled": true,
+				"python.formatting.provider": "black"
+			}
+		}
+	},
+	"forwardPorts": [8080, 8000],
+	"postCreateCommand": "pip install -e .",
+	"onCreateCommand": "./scripts/codespaces_create_and_start_containers.sh",
+	"remoteUser": "root",
+	"workspaceFolder": "/workspaces/hackingBuddyGPT",
+	"mounts": [
+		"source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+	]
 }

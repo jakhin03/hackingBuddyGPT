@@ -25,7 +25,8 @@
   }
 
   function isScrollAtBottom() {
-    const content = document.getElementById("main-body");
+    const content = document.querySelector(".content-area");
+    if (!content) return false;
     console.log(
         "scroll check",
         content.scrollHeight,
@@ -36,7 +37,8 @@
   }
 
   function scrollUpdate(wasAtBottom) {
-    const content = document.getElementById("main-body");
+    const content = document.querySelector(".content-area");
+    if (!content) return;
     if (wasAtBottom) {
       console.log("scrolling to bottom");
       content.scrollTop = content.scrollHeight;
@@ -44,11 +46,24 @@
   }
 
   const sidebar = document.getElementById("sidebar");
-  const menuToggles = document.getElementsByClassName("menu-toggle");
-  Array.from(menuToggles).forEach((menuToggle) => {
-    menuToggle.addEventListener("click", () => {
+  const navToggles = document.querySelectorAll(".nav-toggle");
+  
+  navToggles.forEach((toggle) => {
+    toggle.addEventListener("click", () => {
       sidebar.classList.toggle("active");
     });
+  });
+
+  // Add click outside to close sidebar on mobile
+  document.addEventListener("click", (event) => {
+    if (window.innerWidth <= 768) {
+      const isClickInsideSidebar = sidebar.contains(event.target);
+      const isClickOnToggle = Array.from(navToggles).some(toggle => toggle.contains(event.target));
+      
+      if (!isClickInsideSidebar && !isClickOnToggle && sidebar.classList.contains("active")) {
+        sidebar.classList.remove("active");
+      }
+    }
   });
 
   let ws = null;
@@ -133,8 +148,8 @@
           li = createRunListEntry(run.id);
         }
 
-        li.querySelector(".run-id").textContent = `Run ${run.id}`;
-        li.querySelector(".run-model").tExtContent = run.model;
+        li.querySelector(".run-list-info h3").textContent = `Run ${run.id}`;
+        li.querySelector(".run-model").textContent = run.model;
         li.querySelector(".run-tags").textContent = run.tag;
         li.querySelector(".run-started-at").textContent = run.started_at.slice(
             0,
@@ -155,7 +170,7 @@
       }
 
       function addSectionDiv(sectionId) {
-        const messagesDiv = document.getElementById("messages");
+        const messagesDiv = document.querySelector(".messages-grid");
         const template = document.getElementById("section-template");
         const sectionDiv = template.content
             .cloneNode(true)
@@ -233,7 +248,7 @@
       }
 
       function addMessageDiv(messageId, role) {
-        const messagesDiv = document.getElementById("messages");
+        const messagesDiv = document.querySelector(".messages-grid");
         const template = document.getElementById("message-template");
         const messageDiv = template.content
             .cloneNode(true)
@@ -264,6 +279,11 @@
             `${message.tokens_query} qry tokens`;
         messageDiv.querySelector(".tokens-response").textContent =
             `${message.tokens_response} rsp tokens`;
+            
+        // Add to graph view
+        if (typeof window !== 'undefined' && window.graphView) {
+          window.graphView.addMessage(message);
+        }
       }
 
       function handleMessageStreamPart(part) {
@@ -308,6 +328,11 @@
             toolCall.arguments;
         toolCallDiv.querySelector(".tool-call-results").textContent =
             toolCall.result_text;
+            
+        // Add to graph view
+        if (typeof window !== 'undefined' && window.graphView) {
+          window.graphView.addToolCall(toolCall);
+        }
       }
 
       function handleToolCallStreamPart(part) {
@@ -333,9 +358,15 @@
           return;
         }
 
-        document.getElementById("messages").innerHTML = "";
+        document.querySelector(".messages-grid").innerHTML = "";
         sectionColumns = [];
         document.documentElement.style.setProperty("--section-column-count", 0);
+        
+        // Clear graph view
+        if (typeof window !== 'undefined' && window.graphView) {
+          window.graphView.clearGraph();
+        }
+        
         send("MessageRequest", {follow_run: runId});
         currentRun = runId;
         // set hash to runId via pushState

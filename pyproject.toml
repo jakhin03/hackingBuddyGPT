@@ -37,6 +37,7 @@ dependencies = [
     'pypsexec == 0.3.0',
     'pydantic == 2.8.2',
     'openai == 1.65.2',
+    'google-generativeai >= 0.3.0',
     'BeautifulSoup4',
     'nltk',
     'fastapi == 0.114.0',
@@ -79,6 +80,7 @@ rag-usecase = [
 	'markdown',
 	'chromadb',
 	'langchain-chroma',
+	'google-generativeai >= 0.3.0',
 ]
 
 [project.scripts]

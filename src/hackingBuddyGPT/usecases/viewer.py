@@ -267,6 +267,60 @@ class Viewer(UseCase):
         async def admin_ui(request: Request):
             return templates.TemplateResponse("index.html", {"request": request})
 
+        @app.get("/test", response_class=HTMLResponse)
+        async def test_ui(request: Request):
+            return templates.TemplateResponse("test.html", {"request": request})
+            
+        @app.get("/api/test-data")
+        async def get_test_data():
+            """API endpoint to get test data for graph view debugging"""
+            try:
+                with DbStorage(db_name="wintermute.sqlite3") as db:
+                    # Get latest run
+                    runs = db.get_all_runs()
+                    if not runs:
+                        return {"error": "No runs found"}
+                    
+                    latest_run = runs[-1]
+                    
+                    # Get messages for this run
+                    messages = db.get_all_messages(latest_run.id)
+                    
+                    # Get tool calls for this run
+                    tool_calls = db.get_all_tool_calls(latest_run.id)
+                    
+                    # Format data for graph
+                    graph_data = {
+                        "run_id": latest_run.id,
+                        "messages": [
+                            {
+                                "id": msg.id,
+                                "role": msg.role,
+                                "content": msg.content[:200] + "..." if len(msg.content or "") > 200 else msg.content,
+                                "timestamp": msg.created_at.isoformat() if msg.created_at else None,
+                                "run_id": msg.run_id,
+                                "section_id": msg.section_id
+                            }
+                            for msg in messages
+                        ],
+                        "tool_calls": [
+                            {
+                                "id": tc.id,
+                                "tool_name": tc.function_name,
+                                "status": tc.state,
+                                "result": tc.result_text[:200] + "..." if len(tc.result_text or "") > 200 else tc.result_text,
+                                "timestamp": tc.created_at.isoformat() if tc.created_at else None,
+                                "message_id": tc.message_id
+                            }
+                            for tc in tool_calls
+                        ]
+                    }
+                    
+                    return graph_data
+                    
+            except Exception as e:
+                return {"error": str(e)}
+
         @app.websocket("/ingress")
         async def ingress_endpoint(websocket: WebSocket):
             await websocket.accept()
