@@ -200,6 +200,11 @@ details summary::-webkit-details-marker {
     margin-bottom: 16px;
 }
 
+/* Hide drawer's own toggle on larger screens; show only on mobile overlay */
+.navigation-drawer .nav-toggle {
+    display: none;
+}
+
 .nav-toggle {
     background: none;
     border: none;
@@ -622,6 +627,8 @@ details summary::-webkit-details-marker {
     transform: translateX(0);
 }
 
+.node-details-panel .panel-content { display: block; }
+
 .panel-header {
     display: flex;
     align-items: center;
@@ -695,6 +702,14 @@ details summary::-webkit-details-marker {
     filter: drop-shadow(0px 4px 12px var(--md-sys-color-primary));
 }
 
+/* Lanes for flow layout */
+.lane-layer .lane-bg {
+    pointer-events: none;
+}
+.lane-layer .lane-label {
+    pointer-events: none;
+}
+
 .node.user {
     fill: var(--md-sys-color-primary);
 }
@@ -748,10 +763,24 @@ details summary::-webkit-details-marker {
 .graph-controls {
     position: absolute;
     top: 16px;
-    left: 16px;
+    right: 16px;
     display: flex;
     gap: 8px;
-    z-index: 5;
+    z-index: 100;
+}
+
+.graph-debug-controls {
+    position: absolute;
+    top: 72px; /* below main graph controls */
+    right: 16px;
+    display: flex;
+    gap: 8px;
+    z-index: 100;
+    background: var(--md-sys-color-surface);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: var(--md-sys-elevation-level2);
 }
 
 .graph-control-button {
@@ -773,6 +802,140 @@ details summary::-webkit-details-marker {
     background-color: var(--md-sys-color-surface-container-high);
     box-shadow: var(--md-sys-elevation-level2);
 }
+
+/* Generic tooltip for elements with data-tooltip */
+[data-tooltip] {
+    position: relative;
+}
+
+[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    white-space: nowrap;
+    left: 50%;
+    transform: translateX(-50%) translateY(-6px);
+    bottom: 100%;
+    background: rgba(28,27,31, 0.9);
+    color: #fff;
+    font-size: 12px;
+    line-height: 1;
+    padding: 6px 8px;
+    border-radius: 6px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--md-sys-motion-duration-short3) var(--md-sys-motion-easing-standard), transform var(--md-sys-motion-duration-short3) var(--md-sys-motion-easing-standard);
+    z-index: 9999;
+}
+
+[data-tooltip]:hover::after,
+[data-tooltip]:focus-visible::after {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-10px);
+}
+
+/* Graph legend */
+.graph-legend {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    z-index: 6;
+    background: var(--md-sys-color-surface);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--md-sys-shape-corner-medium);
+    box-shadow: var(--md-sys-elevation-level2);
+    padding: 12px 14px;
+    min-width: 220px;
+}
+
+.graph-legend .legend-title {
+    font-weight: 600;
+    color: var(--md-sys-color-on-surface);
+    margin-bottom: 8px;
+}
+
+.graph-legend .legend-section + .legend-section {
+    margin-top: 10px;
+}
+
+.graph-legend .legend-items {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+}
+
+.graph-legend .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: 12px;
+}
+
+.legend-node,
+.legend-edge {
+    display: inline-block;
+}
+
+.legend-node {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--md-sys-color-outline);
+}
+
+.legend-node.user { background: var(--md-sys-color-primary-container); border-color: var(--md-sys-color-primary); }
+.legend-node.assistant { background: var(--md-sys-color-secondary-container); border-color: var(--md-sys-color-secondary); }
+.legend-node.tool { background: var(--md-sys-color-tertiary-container); border-color: var(--md-sys-color-tertiary); }
+.legend-node.error { background: var(--md-sys-color-error-container); border-color: var(--md-sys-color-error); }
+
+.legend-edge {
+    width: 24px;
+    height: 0;
+    border-top: 3px solid var(--md-sys-color-outline);
+}
+.legend-edge.tool_call { border-top-color: var(--md-sys-color-tertiary); border-top-style: dashed; }
+.legend-edge.reference { border-top-color: var(--md-sys-color-outline-variant); }
+
+/* Edge label */
+.link-label {
+    font-family: var(--md-sys-typescale-body-medium-font);
+    font-size: 11px;
+    fill: var(--md-sys-color-on-surface-variant);
+    pointer-events: none;
+    user-select: none;
+    paint-order: stroke;
+    stroke: #fff;
+    stroke-width: 3px;
+    stroke-opacity: 0.75;
+}
+
+/* Node details refined typography */
+.detail-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+.detail-header h3 {
+    font-size: 16px;
+    margin: 0;
+}
+.detail-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 12px;
+    padding: 12px 16px;
+}
+.detail-field { display: flex; flex-direction: column; gap: 4px; }
+.detail-field.full { grid-column: 1 / -1; }
+.detail-field label { font-size: 12px; color: var(--md-sys-color-on-surface-variant); }
+.detail-text { font-size: 13px; color: var(--md-sys-color-on-surface); }
+.detail-pre { font-family: 'Roboto Mono', monospace; font-size: 12px; line-height: 1.35; background: var(--md-sys-color-surface-container); color: var(--md-sys-color-on-surface); padding: 10px; border-radius: 8px; overflow: auto; max-height: 220px; }
+
+/* Checkbox alignment fix: reserve space for checkmark to avoid shift */
+.md-checkbox::after { content: ''; position: absolute; left: 3px; top: 0px; width: 6px; height: 10px; border: solid transparent; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.md-checkbox:checked::after { border-color: var(--md-sys-color-on-primary); }
 
 /* Section styling */
 .section {
@@ -922,6 +1085,11 @@ details summary::-webkit-details-marker {
 
     .navigation-drawer.active {
         transform: translateX(0);
+    }
+
+    /* On mobile, show the drawer's own close button */
+    .navigation-drawer .nav-toggle {
+        display: flex;
     }
 
     .main-content {
@@ -1444,4 +1612,40 @@ details:focus-visible {
 
 .graph-link.highlighted + marker path {
     fill: var(--md-sys-color-primary);
+}
+
+/* Side Panel (Configuration) */
+.side-panel {
+    position: fixed;
+    top: var(--top-app-bar-height);
+    right: 0;
+    width: min(560px, 90vw);
+    height: calc(100vh - var(--top-app-bar-height));
+    background: var(--md-sys-color-surface-container);
+    border-left: 1px solid var(--md-sys-color-outline-variant);
+    box-shadow: var(--md-sys-elevation-level3);
+    transform: translateX(100%);
+    transition: transform var(--md-sys-motion-duration-medium2) var(--md-sys-motion-easing-emphasized);
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+}
+
+.side-panel.open {
+    transform: translateX(0);
+}
+
+.scrim {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.32);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--md-sys-motion-duration-medium2) var(--md-sys-motion-easing-standard);
+    z-index: 1990;
+}
+
+.scrim.show {
+    opacity: 1;
+    pointer-events: auto;
 }

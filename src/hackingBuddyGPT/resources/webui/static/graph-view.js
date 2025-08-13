@@ -10,6 +10,10 @@ class GraphView {
         this.height = 0;
         this.selectedNode = null;
         this.isGraphView = false;
+    this.layoutMode = 'flow'; // 'flow' | 'force'
+    this.laneConfig = { user: 0.2, assistant: 0.5, tool: 0.8 };
+    this.topMargin = 60;
+    this.rowSpacing = 90;
         
         this.initializeGraph();
         this.setupEventListeners();
@@ -25,18 +29,25 @@ class GraphView {
             .attr("height", this.height);
 
         // Add zoom behavior
-        const zoom = d3.zoom()
+    const zoom = d3.zoom()
             .scaleExtent([0.1, 4])
             .on("zoom", (event) => {
                 this.svg.select(".graph-container")
                     .attr("transform", event.transform);
             });
 
-        this.svg.call(zoom);
+    // keep a reference to the zoom behavior so control buttons can use it
+    this.zoom = zoom;
+    this.svg.call(this.zoom);
+    // Click on empty canvas to clear selection
+    this.svg.on('click', () => this.selectNode(null));
 
-        // Create graph container
+        // Create graph container (zoomed content)
         const graphContainer = this.svg.append("g")
             .attr("class", "graph-container");
+
+        // Lane background layer (must be below links/nodes)
+        this.laneLayer = graphContainer.append('g').attr('class', 'lane-layer');
 
         // Add arrow markers for links with better styling
         const defs = this.svg.append("defs");
@@ -67,16 +78,13 @@ class GraphView {
             .attr("d", "M0,-5L10,0L0,5")
             .attr("fill", "var(--md-sys-color-error)");
 
-        // Create force simulation with improved forces
-        this.simulation = d3.forceSimulation()
-            .force("link", d3.forceLink().id(d => d.id).distance(120).strength(0.8))
-            .force("charge", d3.forceManyBody().strength(-400).distanceMax(300))
-            .force("center", d3.forceCenter(this.width / 2, this.height / 2))
-            .force("collision", d3.forceCollide().radius(35).strength(0.7))
-            .force("x", d3.forceX(this.width / 2).strength(0.1))
-            .force("y", d3.forceY(this.height / 2).strength(0.1));
+    // Create force simulation (forces configured per layout mode)
+    this.simulation = d3.forceSimulation();
+    this.updateForces();
 
         this.addGraphControls();
+    this.addLegend();
+    this.renderLanes();
     }
 
     addGraphControls() {
@@ -86,19 +94,18 @@ class GraphView {
             existingControls.remove();
         }
 
-        const graphViewContainer = document.getElementById('graph-view');
+    const graphViewContainer = document.getElementById('graph-view');
         if (!graphViewContainer) {
             console.error('Graph view container not found');
             return;
         }
 
-        const controlsContainer = document.createElement('div');
+    const controlsContainer = document.createElement('div');
         controlsContainer.className = 'graph-controls';
         controlsContainer.style.cssText = `
             position: absolute;
             top: 16px;
             right: 16px;
-            z-index: 1000;
             display: flex;
             gap: 8px;
         `;
@@ -109,25 +116,31 @@ class GraphView {
                 class: 'zoom-in-btn',
                 icon: 'zoom_in',
                 tooltip: 'Zoom In',
-                action: () => this.zoomIn()
+                action: (e) => { e.stopPropagation(); this.zoomIn(); }
             },
             {
                 class: 'zoom-out-btn', 
                 icon: 'zoom_out',
                 tooltip: 'Zoom Out',
-                action: () => this.zoomOut()
+                action: (e) => { e.stopPropagation(); this.zoomOut(); }
             },
             {
                 class: 'reset-zoom-btn',
                 icon: 'center_focus_strong',
                 tooltip: 'Reset Zoom',
-                action: () => this.resetZoom()
+                action: (e) => { e.stopPropagation(); this.resetZoom(); }
+            },
+            {
+                class: 'layout-toggle-btn',
+                icon: 'view_timeline',
+                tooltip: 'Toggle Layout (Flow/Force)',
+                action: (e) => { e.stopPropagation(); this.toggleLayout(); }
             }
         ];
 
         buttons.forEach(buttonConfig => {
             const button = document.createElement('button');
-            button.className = `graph-control-btn ${buttonConfig.class}`;
+            button.className = `graph-control-button ${buttonConfig.class}`;
             button.style.cssText = `
                 background: var(--md-sys-color-primary-container);
                 color: var(--md-sys-color-on-primary-container);
@@ -146,7 +159,10 @@ class GraphView {
             `;
             button.innerHTML = buttonConfig.icon;
             button.title = buttonConfig.tooltip;
-            button.addEventListener('click', buttonConfig.action);
+            button.setAttribute('aria-label', buttonConfig.tooltip);
+            button.setAttribute('data-tooltip', buttonConfig.tooltip);
+            button.addEventListener('click', (ev) => buttonConfig.action(ev));
+            button.addEventListener('pointerdown', (ev) => ev.stopPropagation());
             
             // Add hover effects
             button.addEventListener('mouseenter', () => {
@@ -166,6 +182,143 @@ class GraphView {
         console.log('Graph controls added successfully');
     }
 
+    toggleLayout() {
+        this.layoutMode = this.layoutMode === 'flow' ? 'force' : 'flow';
+        const btn = document.querySelector('.layout-toggle-btn');
+        if (btn) {
+            const tip = this.layoutMode === 'flow' ? 'Switch to Force Layout' : 'Switch to Flow Layout';
+            btn.title = tip;
+            btn.setAttribute('data-tooltip', tip);
+            btn.setAttribute('aria-label', tip);
+            btn.innerHTML = this.layoutMode === 'flow' ? 'view_timeline' : 'scatter_plot';
+        }
+        this.updateForces();
+        this.renderLanes();
+        this.simulation.alpha(0.6).restart();
+    }
+
+    renderLanes() {
+        if (!this.laneLayer) return;
+        const lanes = [
+            { key: 'user', label: 'User', x: this.getLaneX({ type: 'message', role: 'user' }) },
+            { key: 'assistant', label: 'Assistant', x: this.getLaneX({ type: 'message', role: 'assistant' }) },
+            { key: 'tool', label: 'Tools', x: this.getLaneX({ type: 'tool_call' }) }
+        ];
+
+        const laneWidth = Math.max(140, this.width * 0.22);
+        const height = this.height;
+
+        // Data join for backgrounds
+        const bg = this.laneLayer.selectAll('.lane-bg')
+            .data(lanes, d => d.key);
+        bg.exit().remove();
+        bg.enter().append('rect')
+            .attr('class', 'lane-bg')
+            .attr('y', 0)
+            .attr('rx', 16)
+            .attr('ry', 16)
+            .attr('fill', 'var(--md-sys-color-surface-container-high)')
+            .attr('fill-opacity', 0.25)
+            .merge(bg)
+            .attr('x', d => d.x - laneWidth / 2)
+            .attr('width', laneWidth)
+            .attr('height', height);
+
+        // Data join for labels
+        const labels = this.laneLayer.selectAll('.lane-label')
+            .data(lanes, d => d.key);
+        labels.exit().remove();
+        labels.enter().append('text')
+            .attr('class', 'lane-label')
+            .attr('text-anchor', 'middle')
+            .attr('fill', 'var(--md-sys-color-on-surface-variant)')
+            .attr('font-size', 12)
+            .attr('font-weight', 600)
+            .merge(labels)
+            .attr('x', d => d.x)
+            .attr('y', 20)
+            .text(d => d.label);
+    }
+
+    updateForces() {
+        if (!this.simulation) return;
+        if (this.layoutMode === 'flow') {
+            // Assign sequence indices for vertical ordering
+            this.assignSequenceIndices();
+
+            this.simulation
+                .force('link', d3.forceLink().id(d => d.id).distance(140).strength(0.7))
+                .force('charge', d3.forceManyBody().strength(-200).distanceMax(280))
+                .force('collision', d3.forceCollide().radius(d => this.getNodeRadius(d) + 8).strength(0.9))
+                .force('x', d3.forceX(d => this.getLaneX(d)).strength(1.0))
+                .force('y', d3.forceY(d => this.getTargetY(d)).strength(1.0))
+                .force('center', null);
+        } else {
+            this.simulation
+                .force('link', d3.forceLink().id(d => d.id).distance(120).strength(0.8))
+                .force('charge', d3.forceManyBody().strength(-400).distanceMax(300))
+                .force('collision', d3.forceCollide().radius(35).strength(0.7))
+                .force('x', d3.forceX(this.width / 2).strength(0.1))
+                .force('y', d3.forceY(this.height / 2).strength(0.1))
+                .force('center', d3.forceCenter(this.width / 2, this.height / 2));
+        }
+    }
+
+    assignSequenceIndices() {
+        // Sort by timestamp; fallback to stable order
+        const parseTime = (t) => (t ? new Date(t).getTime() : Date.now());
+        const sorted = [...this.nodes].sort((a, b) => parseTime(a.timestamp) - parseTime(b.timestamp));
+        sorted.forEach((n, i) => { n.seq = i; });
+    }
+
+    getTargetY(d) {
+        const idx = typeof d.seq === 'number' ? d.seq : 0;
+        const y = this.topMargin + idx * this.rowSpacing;
+        return Math.min(Math.max(y, this.topMargin), this.height - 40);
+    }
+
+    getLaneX(d) {
+        const w = this.width;
+        if (d.type === 'message') {
+            if (d.role === 'user') return w * this.laneConfig.user;
+            if (d.role === 'assistant') return w * this.laneConfig.assistant;
+        }
+        if (d.type === 'tool_call') return w * this.laneConfig.tool;
+        return w * 0.6;
+    }
+
+    addLegend() {
+        // Remove existing legend if any
+        const existing = document.querySelector('.graph-legend');
+        if (existing) existing.remove();
+
+        const graphViewContainer = document.getElementById('graph-view');
+        if (!graphViewContainer) return;
+
+        const legend = document.createElement('div');
+        legend.className = 'graph-legend';
+        legend.innerHTML = `
+            <div class="legend-section">
+                <div class="legend-title">Nodes</div>
+                <div class="legend-items">
+                    <div class="legend-item"><span class="legend-node user"></span>User</div>
+                    <div class="legend-item"><span class="legend-node assistant"></span>Assistant</div>
+                    <div class="legend-item"><span class="legend-node tool"></span>Tool Call</div>
+                    <div class="legend-item"><span class="legend-node error"></span>Error</div>
+                </div>
+            </div>
+            <div class="legend-section">
+                <div class="legend-title">Edges</div>
+                <div class="legend-items">
+                    <div class="legend-item"><span class="legend-edge message_flow"></span>Message Flow</div>
+                    <div class="legend-item"><span class="legend-edge tool_call"></span>Tool Call</div>
+                    <div class="legend-item"><span class="legend-edge reference"></span>Reference</div>
+                </div>
+            </div>
+        `;
+        graphViewContainer.appendChild(legend);
+    }
+
     zoomIn() {
         if (!this.svg) return;
         console.log('Zooming in...');
@@ -176,7 +329,7 @@ class GraphView {
         this.svg.transition()
             .duration(300)
             .call(
-                d3.zoom().transform,
+                this.zoom.transform,
                 d3.zoomIdentity.translate(currentTransform.x, currentTransform.y).scale(newScale)
             );
     }
@@ -191,7 +344,7 @@ class GraphView {
         this.svg.transition()
             .duration(300)
             .call(
-                d3.zoom().transform,
+                this.zoom.transform,
                 d3.zoomIdentity.translate(currentTransform.x, currentTransform.y).scale(newScale)
             );
     }
@@ -203,7 +356,7 @@ class GraphView {
         this.svg.transition()
             .duration(500)
             .call(
-                d3.zoom().transform,
+                this.zoom.transform,
                 d3.zoomIdentity
             );
     }
@@ -211,6 +364,11 @@ class GraphView {
     setupEventListeners() {
         // Toggle view button
         const toggleBtn = document.getElementById('view-toggle');
+        // Ensure initial tooltip for view toggle exists
+        if (toggleBtn) {
+            toggleBtn.setAttribute('data-tooltip', this.isGraphView ? 'Switch to List View' : 'Switch to Graph View');
+            toggleBtn.setAttribute('aria-label', this.isGraphView ? 'Switch to List View' : 'Switch to Graph View');
+        }
         if (toggleBtn) {
             toggleBtn.addEventListener('click', () => this.toggleView());
         }
@@ -218,24 +376,7 @@ class GraphView {
         // Window resize handler
         window.addEventListener('resize', () => this.handleResize());
 
-        // Clear graph button
-        const clearBtn = document.getElementById('clear-graph');
-        if (clearBtn) {
-            clearBtn.addEventListener('click', () => this.clearGraph());
-        }
-        
-        // Test graph button
-        const testBtn = document.getElementById('test-graph');
-        if (testBtn) {
-            testBtn.addEventListener('click', () => {
-                console.log('Test button clicked');
-                this.loadTestData();
-                // Switch to graph view if not already
-                if (!this.isGraphView) {
-                    this.toggleView();
-                }
-            });
-        }
+    // Removed graph debug controls (test/clear); functionality now via app bar
         
         // Auto-load first run if available
         setTimeout(() => {
@@ -252,6 +393,15 @@ class GraphView {
                 this.selectNode(null);
             }
         });
+
+        // Close node details button
+        const closeDetailsBtn = document.getElementById('close-details');
+        if (closeDetailsBtn) {
+            closeDetailsBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.selectNode(null);
+            });
+        }
     }
 
     toggleView() {
@@ -264,11 +414,26 @@ class GraphView {
         if (this.isGraphView) {
             listContainer.style.display = 'none';
             graphContainer.style.display = 'flex';
+            // Disable page/content scrolling when in graph view
+            try {
+                // Remember previous overflow to restore later
+                if (typeof document !== 'undefined' && document.body) {
+                    if (!document.body.dataset.prevOverflow) {
+                        document.body.dataset.prevOverflow = document.body.style.overflow || '';
+                    }
+                    document.body.style.overflow = 'hidden';
+                }
+                if (graphContainer) {
+                    graphContainer.style.overflow = 'hidden';
+                }
+            } catch (e) {
+                console.warn('Failed to adjust scroll behavior for graph view:', e);
+            }
             if (toggleBtn) {
                 const icon = toggleBtn.querySelector('.material-icons');
                 if (icon) icon.textContent = 'list';
                 toggleBtn.setAttribute('data-tooltip', 'Switch to List View');
-                toggleBtn.setAttribute('aria-label', 'Toggle List View');
+                toggleBtn.setAttribute('aria-label', 'Switch to List View');
             }
             // Ensure container exists and resize
             setTimeout(() => {
@@ -279,11 +444,24 @@ class GraphView {
         } else {
             listContainer.style.display = 'flex';
             graphContainer.style.display = 'none';
+            // Restore page/content scrolling when leaving graph view
+            try {
+                if (typeof document !== 'undefined' && document.body) {
+                    const prev = document.body.dataset.prevOverflow || '';
+                    document.body.style.overflow = prev;
+                    delete document.body.dataset.prevOverflow;
+                }
+                if (graphContainer) {
+                    graphContainer.style.overflow = '';
+                }
+            } catch (e) {
+                console.warn('Failed to restore scroll behavior after graph view:', e);
+            }
             if (toggleBtn) {
                 const icon = toggleBtn.querySelector('.material-icons');
                 if (icon) icon.textContent = 'account_tree';
                 toggleBtn.setAttribute('data-tooltip', 'Switch to Graph View');
-                toggleBtn.setAttribute('aria-label', 'Toggle Graph View');
+                toggleBtn.setAttribute('aria-label', 'Switch to Graph View');
             }
         }
     }
@@ -300,12 +478,9 @@ class GraphView {
         
         this.svg.attr("width", newWidth).attr("height", newHeight);
         
-        this.simulation
-            .force("center", d3.forceCenter(newWidth / 2, newHeight / 2))
-            .force("x", d3.forceX(newWidth / 2).strength(0.1))
-            .force("y", d3.forceY(newHeight / 2).strength(0.1))
-            .alpha(0.3)
-            .restart();
+    this.updateForces();
+    this.renderLanes();
+    this.simulation.alpha(0.3).restart();
     }
 
     addMessage(message) {
@@ -439,27 +614,43 @@ class GraphView {
         if (!this.svg || !this.isGraphView) return;
 
         const graphContainer = this.svg.select(".graph-container");
+    // Ensure lanes are up-to-date
+    this.renderLanes();
+    this.updateForces();
 
-        // Update links with enhanced styling
+        // Update links as curved paths with labels
         const link = graphContainer.selectAll(".graph-link")
-            .data(this.links, d => `${d.source.id || d.source}-${d.target.id || d.target}`);
+            .data(this.links, d => `${d.source.id || d.source}-${d.target.id || d.target}-${d.type || ''}`);
 
         link.exit().remove();
 
-        const linkEnter = link.enter().append("line")
+        const linkEnter = link.enter().append("path")
             .attr("class", d => `graph-link ${d.type}`)
+            .attr("fill", "none")
             .attr("stroke", d => this.getLinkColor(d.type))
             .attr("stroke-width", d => this.getLinkWidth(d.type))
             .attr("stroke-dasharray", d => d.type === 'tool_call' ? "6,4" : "none")
             .attr("marker-end", d => d.type === 'tool_call' ? 
-                "url(#arrowhead-tool)" : 
-                "url(#arrowhead)")
-            .attr("opacity", 0.8);
+                "url(#arrowhead-tool)" : (d.type === 'reference' ? null : "url(#arrowhead)"))
+            .attr("opacity", 0.9);
 
         const linkUpdate = linkEnter.merge(link);
 
+        // Edge labels
+        const linkLabel = graphContainer.selectAll('.link-label')
+            .data(this.links, d => `label-${d.source.id || d.source}-${d.target.id || d.target}-${d.type || ''}`);
+
+        linkLabel.exit().remove();
+
+        const linkLabelEnter = linkLabel.enter().append('text')
+            .attr('class', 'link-label')
+            .attr('text-anchor', 'middle')
+            .attr('dy', '-4px')
+            .text(d => d.label || d.message || d.type || '');
+        const linkLabelUpdate = linkLabelEnter.merge(linkLabel);
+
         // Update nodes with enhanced Material You design
-        const node = graphContainer.selectAll(".graph-node")
+    const node = graphContainer.selectAll(".graph-node")
             .data(this.nodes, d => d.id);
 
         node.exit().remove();
@@ -468,7 +659,7 @@ class GraphView {
             .attr("class", d => `graph-node node-${d.type === 'message' ? d.role : 'tool'}${d.status === 'error' ? ' status-error' : ''}`)
             .call(this.drag());
 
-        // Add enhanced circles with rounded rectangles for better Material You feel
+    // Add enhanced circles for Material You feel
         nodeEnter.append("circle")
             .attr("r", d => this.getNodeRadius(d))
             .attr("fill", d => this.getNodeFillColor(d))
@@ -495,6 +686,19 @@ class GraphView {
             .attr("font-size", "10px")
             .attr("font-weight", "500")
             .text(d => this.getNodeLabel(d));
+
+        // Add native SVG tooltip to explain node purpose
+        nodeEnter.append('title')
+            .text(d => {
+                if (d.type === 'message') {
+                    return d.role === 'user' ? 'User message' : 'Assistant message';
+                }
+                if (d.type === 'tool_call') {
+                    const name = d.tool_name || 'Tool';
+                    return `Tool call: ${name}`;
+                }
+                return 'Node';
+            });
 
         const nodeUpdate = nodeEnter.merge(node);
 
@@ -529,11 +733,28 @@ class GraphView {
 
         // Update positions on tick with smooth animations
         this.simulation.on("tick", () => {
+            // Update curved path between nodes
             linkUpdate
-                .attr("x1", d => d.source.x)
-                .attr("y1", d => d.source.y)
-                .attr("x2", d => d.target.x)
-                .attr("y2", d => d.target.y);
+                .attr('d', d => {
+                    const sx = d.source.x, sy = d.source.y;
+                    const tx = d.target.x, ty = d.target.y;
+                    const dx = tx - sx, dy = ty - sy;
+                    const dr = Math.sqrt(dx*dx + dy*dy) * 0.6; // curvature
+                    const mx = (sx + tx) / 2;
+                    const my = (sy + ty) / 2;
+                    // Control point perpendicular offset for smooth curve
+                    const nx = -dy, ny = dx;
+                    const norm = Math.max(Math.sqrt(nx*nx + ny*ny), 1);
+                    const offset = Math.min(40, dr * 0.3);
+                    const cx = mx + (nx / norm) * offset;
+                    const cy = my + (ny / norm) * offset;
+                    return `M ${sx},${sy} Q ${cx},${cy} ${tx},${ty}`;
+                });
+
+            // Position edge labels near the middle
+            linkLabelUpdate
+                .attr('x', d => (d.source.x + d.target.x) / 2)
+                .attr('y', d => (d.source.y + d.target.y) / 2);
 
             nodeUpdate
                 .attr("transform", d => `translate(${d.x},${d.y})`);
@@ -570,7 +791,7 @@ class GraphView {
     getNodeIcon(node) {
         switch(node.type) {
             case 'message':
-                return node.role === 'user' ? 'person' : 'Agent';
+                return node.role === 'user' ? 'person' : 'agent';
             case 'tool_call':
                 return 'build';
             default:
@@ -626,6 +847,8 @@ class GraphView {
                 return 'var(--md-sys-color-tertiary)';
             case 'message_flow':
                 return 'var(--md-sys-color-outline)';
+            case 'reference':
+                return 'var(--md-sys-color-outline-variant)';
             default:
                 return 'var(--md-sys-color-outline-variant)';
         }
@@ -637,6 +860,8 @@ class GraphView {
                 return 3;
             case 'message_flow':
                 return 2;
+            case 'reference':
+                return 1.5;
             default:
                 return 1;
         }
@@ -644,11 +869,14 @@ class GraphView {
 
     highlightConnections(node) {
         // Highlight all links connected to the selected node
+        const isRelated = (d) => (d.source.id === node.id || d.target.id === node.id) || (d.source === node.id || d.target === node.id);
         this.svg.selectAll('.graph-link')
-            .classed('highlighted', d => 
-                (d.source.id === node.id || d.target.id === node.id) ||
-                (d.source === node.id || d.target === node.id)
-            );
+            .attr('opacity', d => isRelated(d) ? 1 : 0.2)
+            .attr('stroke-width', d => isRelated(d) ? this.getLinkWidth(d.type) + 1 : this.getLinkWidth(d.type));
+        this.svg.selectAll('.link-label')
+            .attr('opacity', d => isRelated(d) ? 1 : 0.15);
+        this.svg.selectAll('.graph-node circle')
+            .attr('opacity', d => (d.id === node.id ? 1 : 0.6));
     }
 
     drag() {
@@ -674,7 +902,7 @@ class GraphView {
         this.selectedNode = node;
         
         // Update visual selection
-        this.svg.selectAll(".node circle")
+        this.svg.selectAll(".graph-node circle")
             .attr("stroke-width", d => d === node ? 4 : 2)
             .attr("stroke", d => d === node ? 
                 "var(--md-sys-color-primary)" : 
@@ -682,14 +910,25 @@ class GraphView {
         
         if (node) {
             this.showNodeDetails(node);
+            this.highlightConnections(node);
         } else {
             this.hideNodeDetails();
+            // Reset highlights
+            this.svg.selectAll('.graph-link')
+                .attr('opacity', 0.9)
+                .attr('stroke-width', d => this.getLinkWidth(d.type));
+            this.svg.selectAll('.link-label').attr('opacity', 1);
+            this.svg.selectAll('.graph-node circle').attr('opacity', 1);
         }
     }
 
     showNodeDetails(node) {
         const detailsPanel = document.getElementById('node-details');
-        if (!detailsPanel) return;
+        const detailsContent = document.getElementById('details-content');
+        if (!detailsPanel || !detailsContent) return;
+
+        // Ensure panel class and open state
+        detailsPanel.classList.add('node-details-panel', 'open');
 
         // Populate details based on node type
         let detailsHTML = '';
@@ -697,22 +936,14 @@ class GraphView {
         if (node.type === 'message') {
             detailsHTML = `
                 <div class="detail-header">
-                    <span class="material-icons">${node.role === 'user' ? 'person' : 'Agent'}</span>
+                    <span class="material-icons">${node.role === 'user' ? 'person' : 'agent'}</span>
                     <h3>${node.role === 'user' ? 'User Message' : 'Assistant Message'}</h3>
                 </div>
                 <div class="detail-content">
-                    <div class="detail-field">
-                        <label>Content:</label>
-                        <div class="detail-text">${node.content || 'No content'}</div>
-                    </div>
-                    <div class="detail-field">
-                        <label>Timestamp:</label>
-                        <div class="detail-text">${new Date(node.timestamp).toLocaleString()}</div>
-                    </div>
-                    <div class="detail-field">
-                        <label>Run ID:</label>
-                        <div class="detail-text">${node.run_id || 'Unknown'}</div>
-                    </div>
+                    <div class="detail-field"><label>Role</label><div class="detail-text">${node.role}</div></div>
+                    <div class="detail-field"><label>Timestamp</label><div class="detail-text">${new Date(node.timestamp).toLocaleString()}</div></div>
+                    <div class="detail-field"><label>Run ID</label><div class="detail-text">${node.run_id || 'Unknown'}</div></div>
+                    <div class="detail-field full"><label>Content</label><pre class="detail-pre">${node.content || 'No content'}</pre></div>
                 </div>
             `;
         } else if (node.type === 'tool_call') {
@@ -722,33 +953,23 @@ class GraphView {
                     <h3>Tool Call</h3>
                 </div>
                 <div class="detail-content">
-                    <div class="detail-field">
-                        <label>Tool Name:</label>
-                        <div class="detail-text">${node.tool_name || 'Unknown'}</div>
-                    </div>
-                    <div class="detail-field">
-                        <label>Status:</label>
-                        <div class="detail-text status-${node.status}">${node.status || 'Unknown'}</div>
-                    </div>
-                    <div class="detail-field">
-                        <label>Result:</label>
-                        <div class="detail-text">${node.result || 'No result'}</div>
-                    </div>
-                    <div class="detail-field">
-                        <label>Timestamp:</label>
-                        <div class="detail-text">${new Date(node.timestamp).toLocaleString()}</div>
-                    </div>
+                    <div class="detail-field"><label>Tool Name</label><div class="detail-text">${node.tool_name || 'Unknown'}</div></div>
+                    <div class="detail-field"><label>Status</label><div class="detail-text status-${node.status}">${node.status || 'Unknown'}</div></div>
+                    <div class="detail-field"><label>Timestamp</label><div class="detail-text">${new Date(node.timestamp).toLocaleString()}</div></div>
+                    <div class="detail-field full"><label>Arguments</label><pre class="detail-pre">${node.arguments || ''}</pre></div>
+                    <div class="detail-field full"><label>Result</label><pre class="detail-pre">${node.result || 'No result'}</pre></div>
                 </div>
             `;
         }
 
-        detailsPanel.innerHTML = detailsHTML;
-        detailsPanel.style.display = 'block';
+    detailsContent.innerHTML = detailsHTML;
+    detailsPanel.style.display = 'block';
     }
 
     hideNodeDetails() {
         const detailsPanel = document.getElementById('node-details');
         if (detailsPanel) {
+            detailsPanel.classList.remove('open');
             detailsPanel.style.display = 'none';
         }
     }

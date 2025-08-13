@@ -15,7 +15,7 @@
             <nav class="navigation-drawer" id="sidebar">
                 <div class="nav-header">
                     <div class="nav-header-content">
-                        <button class="nav-toggle" aria-label="Toggle navigation">
+                        <button class="nav-toggle tooltip" aria-label="Toggle navigation" data-tooltip="Toggle sidebar">
                             <span class="material-icons">menu</span>
                         </button>
                         <div class="nav-title">
@@ -43,45 +43,6 @@
                         <ul id="run-list" class="run-list"></ul>
                     </div>
                     
-                    <!-- Test Controls -->
-                    <div class="test-controls" style="padding: 16px; border-top: 1px solid var(--md-sys-color-outline-variant); margin-top: 16px;">
-                        <div class="section-header">
-                            <span class="material-icons">bug_report</span>
-                            <h3>Debug Controls</h3>
-                        </div>
-                        <button class="debug-button" id="test-graph" style="
-                            width: 100%; 
-                            padding: 12px; 
-                            margin: 8px 0; 
-                            background: var(--md-sys-color-secondary-container); 
-                            color: var(--md-sys-color-on-secondary-container); 
-                            border: none; 
-                            border-radius: 12px; 
-                            cursor: pointer;
-                            display: flex;
-                            align-items: center;
-                            gap: 8px;
-                            justify-content: center;">
-                            <span class="material-icons">account_tree</span>
-                            Load Test Data
-                        </button>
-                        <button class="debug-button" id="clear-graph" style="
-                            width: 100%; 
-                            padding: 12px; 
-                            margin: 8px 0; 
-                            background: var(--md-sys-color-error-container); 
-                            color: var(--md-sys-color-on-error-container); 
-                            border: none; 
-                            border-radius: 12px; 
-                            cursor: pointer;
-                            display: flex;
-                            align-items: center;
-                            gap: 8px;
-                            justify-content: center;">
-                            <span class="material-icons">clear_all</span>
-                            Clear Graph
-                        </button>
-                    </div>
                 </div>
             </nav>
 
@@ -90,7 +51,7 @@
                 <!-- Top App Bar -->
                 <header class="top-app-bar" id="run-header">
                     <div class="app-bar-content">
-                        <button class="nav-toggle" aria-label="Toggle navigation">
+                        <button class="nav-toggle tooltip" aria-label="Toggle navigation" data-tooltip="Toggle sidebar">
                             <span class="material-icons">menu</span>
                         </button>
                         <div class="app-bar-title">
@@ -100,10 +61,10 @@
                             <button class="icon-button tooltip" id="view-toggle" aria-label="Toggle Graph View" data-tooltip="Switch to Graph View">
                                 <span class="material-icons">account_tree</span>
                             </button>
-                            <button class="icon-button tooltip" aria-label="Refresh" data-tooltip="Refresh">
+                            <button class="icon-button tooltip" id="refresh-btn" aria-label="Refresh data" data-tooltip="Refresh data" title="Refresh data">
                                 <span class="material-icons">refresh</span>
                             </button>
-                            <button class="icon-button tooltip" aria-label="Settings" data-tooltip="Settings">
+                            <button class="icon-button tooltip" id="settings-btn" aria-label="Settings" data-tooltip="Configuration">
                                 <span class="material-icons">settings</span>
                             </button>
                         </div>
@@ -113,20 +74,6 @@
                 <!-- Content Area -->
                 <div class="content-area">
                     <div id="black-block" class="spacer-block"></div>
-                    
-                    <!-- Configuration Card -->
-                    <div class="card config-card" id="run-config-details">
-                        <div class="card-header">
-                            <div class="card-title">
-                                <span class="material-icons">settings</span>
-                                <h3>Configuration</h3>
-                            </div>
-                            <span class="material-icons expand-icon">expand_more</span>
-                        </div>
-                        <div class="card-content">
-                            <pre id="run-config" class="config-content">No configuration data available</pre>
-                        </div>
-                    </div>
 
                     <!-- Messages Container -->
                     <div class="messages-container" id="list-view">
@@ -139,7 +86,7 @@
                         <div id="node-details" class="node-details-panel">
                             <div class="panel-header">
                                 <h3>Node Details</h3>
-                                <button class="icon-button" id="close-details">
+                                <button class="icon-button tooltip" id="close-details" aria-label="Close" data-tooltip="Close">
                                     <span class="material-icons">close</span>
                                 </button>
                             </div>
@@ -151,6 +98,23 @@
                 </div>
             </div>
         </div>
+
+        <!-- Configuration Side Panel -->
+        <div id="config-scrim" class="scrim" aria-hidden="true"></div>
+        <aside id="config-panel" class="side-panel" aria-hidden="true" aria-labelledby="settings-btn">
+            <div class="panel-header">
+                <div class="card-title">
+                    <span class="material-icons">settings</span>
+                    <h3>Configuration</h3>
+                </div>
+                <button class="icon-button tooltip" id="close-config" aria-label="Close Configuration" data-tooltip="Close">
+                    <span class="material-icons">close</span>
+                </button>
+            </div>
+            <div class="panel-content">
+                <pre id="run-config" class="config-content">No configuration data available</pre>
+            </div>
+        </aside>
     </body>
     <template id="run-list-entry-template">
         <li class="run-list-entry">

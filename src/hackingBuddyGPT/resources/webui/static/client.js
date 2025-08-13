@@ -47,12 +47,27 @@
 
   const sidebar = document.getElementById("sidebar");
   const navToggles = document.querySelectorAll(".nav-toggle");
+  const settingsBtn = document.getElementById("settings-btn");
+  const refreshBtn = document.getElementById("refresh-btn");
+  const configPanel = document.getElementById("config-panel");
+  const closeConfigBtn = document.getElementById("close-config");
+  const configScrim = document.getElementById("config-scrim");
   
+  function syncNavToggleTooltips() {
+    const isActive = sidebar.classList.contains('active');
+    navToggles.forEach(btn => {
+      btn.setAttribute('data-tooltip', isActive ? 'Close sidebar' : 'Open sidebar');
+      btn.setAttribute('aria-label', isActive ? 'Close sidebar' : 'Open sidebar');
+    });
+  }
   navToggles.forEach((toggle) => {
     toggle.addEventListener("click", () => {
       sidebar.classList.toggle("active");
+      syncNavToggleTooltips();
     });
   });
+  // Initialize tooltip text on load
+  syncNavToggleTooltips();
 
   // Add click outside to close sidebar on mobile
   document.addEventListener("click", (event) => {
@@ -62,9 +77,78 @@
       
       if (!isClickInsideSidebar && !isClickOnToggle && sidebar.classList.contains("active")) {
         sidebar.classList.remove("active");
+  syncNavToggleTooltips();
       }
     }
   });
+
+  // Configuration side panel open/close
+  function syncSettingsTooltip() {
+    const btn = settingsBtn;
+    if (!btn) return;
+    const isOpen = configPanel?.classList.contains('open');
+    const tip = isOpen ? 'Close Configuration' : 'Open Configuration';
+    btn.setAttribute('data-tooltip', tip);
+    btn.setAttribute('aria-label', tip);
+    btn.title = tip;
+  }
+  function openConfigPanel() {
+    if (!configPanel) return;
+    configPanel.classList.add('open');
+    configPanel.setAttribute('aria-hidden', 'false');
+    if (configScrim) configScrim.classList.add('show');
+    // Prevent background scroll unless already hidden (graph view)
+    if (!document.body.dataset.prevOverflow) {
+      document.body.dataset.prevOverflow = document.body.style.overflow || '';
+    }
+    document.body.style.overflow = 'hidden';
+    syncSettingsTooltip();
+  }
+  function closeConfigPanel() {
+    if (!configPanel) return;
+    configPanel.classList.remove('open');
+    configPanel.setAttribute('aria-hidden', 'true');
+    if (configScrim) configScrim.classList.remove('show');
+    // Restore background scroll unless graph view explicitly disabled it
+    const inGraph = document.getElementById('graph-view')?.style.display === 'flex';
+    if (!inGraph) {
+      const prev = document.body.dataset.prevOverflow || '';
+      document.body.style.overflow = prev;
+      delete document.body.dataset.prevOverflow;
+    }
+    syncSettingsTooltip();
+  }
+  function toggleConfigPanel() {
+    if (!configPanel) return;
+    if (configPanel.classList.contains('open')) {
+      closeConfigPanel();
+    } else {
+      openConfigPanel();
+    }
+  }
+  if (settingsBtn) settingsBtn.addEventListener('click', toggleConfigPanel);
+  if (closeConfigBtn) closeConfigBtn.addEventListener('click', closeConfigPanel);
+  if (configScrim) configScrim.addEventListener('click', closeConfigPanel);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && configPanel?.classList.contains('open')) closeConfigPanel();
+  });
+  // Initialize settings tooltip text
+  syncSettingsTooltip();
+
+  // Ensure app bar button tooltips are set on load
+  const viewToggleBtn = document.getElementById('view-toggle');
+  if (viewToggleBtn) {
+    const isGraph = document.getElementById('graph-view')?.style.display === 'flex';
+    const tip = isGraph ? 'Switch to List View' : 'Switch to Graph View';
+    viewToggleBtn.setAttribute('data-tooltip', tip);
+    viewToggleBtn.setAttribute('aria-label', tip);
+    viewToggleBtn.title = tip;
+  }
+  if (refreshBtn) {
+    refreshBtn.setAttribute('data-tooltip', 'Refresh data');
+    refreshBtn.setAttribute('aria-label', 'Refresh data');
+    refreshBtn.title = 'Refresh data';
+  }
 
   let ws = null;
   let currentRun = null;
@@ -141,7 +225,7 @@
         return runListEntry;
       }
 
-      function handleRunMessage(run) {
+  function handleRunMessage(run) {
         runs[run.id] = run;
         let li = document.getElementById(`run-list-entry-${run.id}`);
         if (!li) {
@@ -352,7 +436,7 @@
         }
       }
 
-      const selectRun = debounce((runId) => {
+  const selectRun = debounce((runId) => {
         console.error("selectRun", runId, currentRun);
         if (runId === currentRun) {
           return;
@@ -387,6 +471,27 @@
               runs[runId].configuration;
         }
       });
+
+      // Attach refresh behavior now that selectRun and runs are in scope
+      if (refreshBtn && !refreshBtn.dataset.wired) {
+        refreshBtn.dataset.wired = 'true';
+        refreshBtn.addEventListener('click', () => {
+          // If a run is selected, re-request it to refresh messages and graph
+          if (currentRun) {
+            // Clear existing UI and ask for data again
+            document.querySelector(".messages-grid").innerHTML = "";
+            document.documentElement.style.setProperty("--section-column-count", 0);
+            if (typeof window !== 'undefined' && window.graphView) {
+              window.graphView.clearGraph();
+              // If currently in list view, keep it; graph will populate on toggle
+            }
+            send("MessageRequest", { follow_run: currentRun });
+          } else {
+            // No run selected: ask server to send overview again
+            send("MessageRequest", { follow_run: null });
+          }
+        });
+      }
       if (window.location.hash) {
         selectRun(parseInt(window.location.hash.slice(1), 10));
       } else {
